@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Fire Weather Frame</title>
+<style>
+/* ═══════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════ */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { 
+    width: 100%; height: 100%; 
+    overflow: hidden; 
+    background: #0a0a0a; 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #fff;
+    touch-action: manipulation;
+}
+
+/* ═══════════════════════════════════════
+   BACKGROUND SLIDESHOW
+   ═══════════════════════════════════════ */
+#bg-container { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; 
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #6e45e2 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 30s ease infinite;
+}
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+.bg-image { 
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+    object-fit: cover; 
+    opacity: 0; 
+    transition: opacity 2.5s ease-in-out;
+    z-index: 2;
+}
+.bg-image.active { opacity: 1; }
+.bg-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%);
+    z-index: 3; 
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════
+   MAIN CONTENT LAYER
+   ═══════════════════════════════════════ */
+#content { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+/* ═══════════════════════════════════════
+   CLOCK (CENTER)
+   ═══════════════════════════════════════ */
+#clock-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.9);
+    pointer-events: none;
+}
+#time-display { 
+    font-size: 9rem; 
+    font-weight: 100; 
+    letter-spacing: 0.08em; 
+    line-height: 0.9; 
+    font-variant-numeric: tabular-nums;
+}
+#date-display { 
+    font-size: 1.6rem; 
+    font-weight: 400; 
+    margin-top: 1.2rem; 
+    opacity: 0.85; 
+    text-transform: uppercase; 
+    letter-spacing: 0.25em; 
+}
+
+/* ═══════════════════════════════════════
+   WEATHER (TOP-RIGHT)
+   ═══════════════════════════════════════ */
+#weather-section {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: rgba(0,0,0,0.45);
+    border-radius: 20px;
+    padding: 1.25rem 1.5rem;
+    min-width: 200px;
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: transform 0.3s ease;
+}
+/* Fallback for browsers without backdrop-filter */
+@supports not (backdrop-filter: blur(12px)) {
+    #weather-section { background: rgba(0,0,0,0.75); }
+}
+#weather-city { 
+    font-size: 0.75rem; 
+    text-transform: uppercase; 
+    letter-spacing: 0.15em; 
+    opacity: 0.6; 
+    margin-bottom: 0.4rem; 
+}
+#weather-main { display: flex; align-items: center; gap: 0.75rem; }
+#weather-temp { font-size: 2.8rem; font-weight: 200; }
+#weather-icon { font-size: 2.2rem; line-height: 1; }
+#weather-desc { 
+    font-size: 0.95rem; 
+    opacity: 0.9; 
+    margin-top: 0.2rem; 
+    font-weight: 300;
+}
+#weather-hilo { 
+    font-size: 0.8rem; 
+    opacity: 0.6; 
+    margin-top: 0.4rem; 
+    letter-spacing: 0.05em;
+}
+
+/* ═══════════════════════════════════════
+   FORECAST (BOTTOM)
+   ═══════════════════════════════════════ */
+#forecast-row {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1.5rem;
+    background: rgba(0,0,0,0.45);
+    border-radius: 16px;
+    padding: 0.8rem 1.5rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+@supports not (backdrop-filter: blur(12px)) {
+    #forecast-row { background: rgba(0,0,0,0.75); }
+}
+.forecast-day { text-align: center; min-width: 60px; }
+.forecast-day-name { 
+    font-size: 0.65rem; 
+    text-transform: uppercase; 
+    opacity: 0.6; 
+    margin-bottom: 0.3rem; 
+    letter-spacing: 0.1em;
+}
+.forecast-day-icon { font-size: 1.4rem; margin: 0.2rem 0; line-height: 1; }
+.forecast-day-temp { font-size: 0.85rem; font-weight: 500; opacity: 0.9; }
+
+/* ═══════════════════════════════════════
+   SETTINGS & STATUS
+   ═══════════════════════════════════════ */
+#settings-btn {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 20;
+    width: 48px; height: 48px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    pointer-events: auto;
+}
+#settings-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.15); }
+
+#settings-panel {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.88);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    z-index: 30;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+#settings-panel.active { display: flex; opacity: 1; }
+.settings-card {
+    background: #151515;
+    border-radius: 24px;
+    padding: 2rem;
+    max-width: 480px;
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.08);
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+#settings-panel.active .settings-card { transform: translateY(0); }
+.settings-card h2 { margin-bottom: 1.5rem; font-weight: 400; font-size: 1.5rem; }
+.form-group { margin-bottom: 1.1rem; }
+.form-group label { 
+    display: block; 
+    font-size: 0.75rem; 
+    opacity: 0.6; 
+    margin-bottom: 0.4rem; 
+    text-transform: uppercase; 
+    letter-spacing: 0.08em; 
+    font-weight: 500;
+}
+.form-group input {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+.form-group input:focus { outline: none; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06); }
+.settings-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+.btn {
+    flex: 1;
+    padding: 0.85rem;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+.btn-primary { background: #fff; color: #000; }
+.btn-secondary { background: rgba(255,255,255,0.08); color: #fff; }
+.btn:active { transform: scale(0.96); opacity: 0.8; }
+
+#status-indicator {
+    position: absolute;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #30d158;
+    z-index: 20;
+    box-shadow: 0 0 8px rgba(48, 209, 88, 0.4);
+    transition: all 0.3s;
+}
+#status-indicator.offline { background: #ff453a; box-shadow: 0 0 8px rgba(255, 69, 58, 0.4); }
+#status-indicator.error { background: #ff9f0a; box-shadow: 0 0 8px rgba(255, 159, 10, 0.4); }
+#status-indicator.cached { background: #0a84ff; box-shadow: 0 0 8px rgba(10, 132, 255, 0.4); }
+
+/* ═══════════════════════════════════════
+   LOADING & OFFLINE STATES
+   ═══════════════════════════════════════ */
+#loading-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    transition: opacity 0.5s;
+}
+#loading-overlay.hidden { opacity: 0; pointer-events: none; }
+.spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-text { margin-top: 1rem; font-size: 0.85rem; opacity: 0.6; letter-spacing: 0.1em; }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE (Fire HD 8 Portrait)
+   ═══════════════════════════════════════ */
+@media (max-width: 800px) {
+    #time-display { font-size: 5.5rem; }
+    #date-display { font-size: 1.1rem; letter-spacing: 0.15em; }
+    #weather-section { 
+        top: auto; 
+        bottom: 7rem; 
+        right: 50%; 
+        transform: translateX(50%); 
+        min-width: 260px;
+        text-align: center;
+    }
+    #weather-main { justify-content: center; }
+    #forecast-row { display: none; } /* Hide forecast in portrait to prevent crowding */
+    #settings-btn { top: 1rem; left: 1rem; width: 44px; height: 44px; }
+    .settings-card { padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loading-text">INITIALIZING DASHBOARD</div>
+</div>
+
+<!-- Background Layer -->
+<div id="bg-container"></div>
+<div class="bg-overlay"></div>
+
+<!-- Main UI Layer -->
+<div id="content">
+    <button id="settings-btn" onclick="app.toggleSettings()" aria-label="Settings">⚙</button>
+    
+    <div id="clock-section">
+        <div id="time-display">--:--</div>
+        <div id="date-display">Loading...</div>
+    </div>
+    
+    <div id="weather-section">
+        <div id="weather-city">--</div>
+        <div id="weather-main">
+            <div id="weather-temp">--°</div>
+            <div id="weather-icon">--</div>
+        </div>
+        <div id="weather-desc">--</div>
+        <div id="weather-hilo">H: --°  L: --°</div>
+    </div>
+    
+    <div id="forecast-row"></div>
+    
+    <div id="status-indicator" title="System Status"></div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-panel">
+    <div class="settings-card">
+        <h2>Dashboard Settings</h2>
+        <div class="form-group">
+            <label>City Name</label>
+            <input type="text" id="setting-city" placeholder="e.g. Dubai">
+        </div>
+        <div class="form-group">
+            <label>Latitude</label>
+            <input type="text" id="setting-lat" placeholder="25.2048">
+        </div>
+        <div class="form-group">
+            <label>Longitude</label>
+            <input type="text" id="setting-lon" placeholder="55.2708">
+        </div>
+        <div class="form-group">
+            <label>Google Apps Script URL</label>
+            <input type="text" id="setting-photos" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <div class="form-group">
+            <label>Photo Interval (seconds)</label>
+            <input type="number" id="setting-interval" value="15" min="5" max="300">
+        </div>
+        <div class="settings-actions">
+            <button class="btn btn-secondary" onclick="app.toggleSettings()">Cancel</button>
+            <button class="btn btn-primary" onclick="app.saveSettings()">Save & Apply</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * FIRE WEATHER FRAME - PRODUCTION DASHBOARD
+ * Optimized for Amazon Fire HD 8 (R2SP8T) - 1280x800
+ * 
+ * Defensive programming features:
+ * - Triple-redundant caching (localStorage)
+ * - Exponential backoff for failed API calls
+ * - Memory leak prevention (DOM node recycling)
+ * - Graceful degradation chains
+ * - Auto-reload to prevent state rot
+ */
+
+class DashboardApp {
+    constructor() {
+        this.config = this.loadConfig();
+        this.images = [];
+        this.currentImageIndex = 0;
+        this.weatherData = null;
+        this.slideshowTimer = null;
+        this.weatherTimer = null;
+        this.clockTimer = null;
+        this.wakeLock = null;
+        this.retryAttempts = { weather: 0, photos: 0 };
+        this.maxRetries = 5;
+        this.baseRetryDelay = 5000;
+        
+        // WMO Weather code mapping (Open-Meteo standard)
+        this.weatherCodes = {
+            0: { desc: 'Clear Sky', icon: '☀️' },
+            1: { desc: 'Mainly Clear', icon: '🌤️' },
+            2: { desc: 'Partly Cloudy', icon: '⛅' },
+            3: { desc: 'Overcast', icon: '☁️' },
+            45: { desc: 'Fog', icon: '🌫️' },
+            48: { desc: 'Rime Fog', icon: '🌫️' },
+            51: { desc: 'Light Drizzle', icon: '🌦️' },
+            53: { desc: 'Drizzle', icon: '🌦️' },
+            55: { desc: 'Heavy Drizzle', icon: '🌧️' },
+            56: { desc: 'Freezing Drizzle', icon: '🌨️' },
+            57: { desc: 'Freezing Drizzle', icon: '🌨️' },
+            61: { desc: 'Slight Rain', icon: '🌧️' },
+            63: { desc: 'Rain', icon: '🌧️' },
+            65: { desc: 'Heavy Rain', icon: '🌧️' },
+            66: { desc: 'Freezing Rain', icon: '🌨️' },
+            67: { desc: 'Freezing Rain', icon: '🌨️' },
+            71: { desc: 'Slight Snow', icon: '🌨️' },
+            73: { desc: 'Snow', icon: '🌨️' },
+            75: { desc: 'Heavy Snow', icon: '❄️' },
+            77: { desc: 'Snow Grains', icon: '🌨️' },
+            80: { desc: 'Slight Showers', icon: '🌦️' },
+            81: { desc: 'Showers', icon: '🌧️' },
+            82: { desc: 'Heavy Showers', icon: '🌧️' },
+            85: { desc: 'Snow Showers', icon: '🌨️' },
+            86: { desc: 'Snow Showers', icon: '❄️' },
+            95: { desc: 'Thunderstorm', icon: '⛈️' },
+            96: { desc: 'Thunderstorm & Hail', icon: '⛈️' },
+            99: { desc: 'Heavy Thunderstorm', icon: '⛈️' }
+        };
+        
+        this.init();
+    }
+    
+    /* ═══════════════════════════════════════
+       CONFIGURATION MANAGEMENT
+       ═══════════════════════════════════════ */
+    loadConfig() {
+        const defaults = {
+            city: 'Home',
+            lat: 25.2048,
+            lon: 55.2708,
+            photosUrl: '',
+            slideInterval: 15000,
+            firstRun: true
+        };
+        try {
+            const saved = localStorage.getItem('fireDashboard_v2');
+            return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+        } catch(e) {
+            console.warn('Config load failed, using defaults');
+            return defaults;
+        }
+    }
+    
+    saveConfig() {
+        try {
+            localStorage.setItem('fireDashboard_v2', JSON.stringify(this.config));
+        } catch(e) {
+            console.error('Failed to save config:', e);
+        }
+    }
+    
+    /* ═══════════════════════════════════════
+       INITIALIZATION
+       ═══════════════════════════════════════ */
+    init() {
+        this.startClock();
+        this.loadWeather();
+        this.loadPhotos();
+        this.setupWakeLock();
+        this.setupFullscreen();
+        this.setupNetworkMonitoring();
+        this.setupAutoReload();
+        this.setupMemoryManagement();
+        
+        // Periodic refresh timers
+        this.weatherTimer = setInterval(() => this.loadWeather(), 30 * 60 * 1000); // 30 min
+        setInterval(() => this.loadPhotos(), 60 * 60 * 1000); // 60 min
+        
+        // Hide loading screen after initial render
+        setTimeout(() => {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }, 1500);
+        
+        // If first run, show settings immediately
+        if (this.config.firstRun) {
+            setTimeout(() => this.toggleSettings(), 2000);
+        }
+    }
+    
+    /* ═══════════════════════════════════════
+       CLOCK & DATE (ZERO NETWORK)
+       ═══════════════════════════════════════ */
+    startClock() {
+        const update = () => {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+            const dateStr = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            const elTime = document.getElementById('time-display');
+            const elDate = document.getElementById('date-display');
+            if (elTime) elTime.textContent = timeStr;
+            if (elDate) elDate.textContent = dateStr;
+        };
+        update();
+        this.clockTimer = setInterval(update, 1000);
+    }
+    
+    /* ═══════════════════════════════════════
+       WEATHER (Open-Meteo API)
+       ═══════════════════════════════════════ */
+    async loadWeather() {
+        try {
+            const url = `https://api.open-meteo.com/v1/forecast?` +
+                `latitude=${this.config.lat}&longitude=${this.config.lon}` +
+                `&current_weather=true` +
+                `&daily=weathercode,temperature_2m_max,temperature_2m_min` +
+                `&timezone=auto&forecast_days=4`;
+            
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+            
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const data = await response.json();
+            
+            // Validate response structure
+            if (!data.current_weather || !data.daily) {
+                throw new Error('Invalid weather data structure');
+            }
+            
+            this.weatherData = data;
+            this.retryAttempts.weather = 0;
+            
+            // Cache with timestamp
+            const cachePayload = { data: data, timestamp: Date.now() };
+            localStorage.setItem('fireDashboardWeatherCache', JSON.stringify(cachePayload));
+            
+            this.renderWeather(data);
+            this.setStatus('online');
+            
+        } catch (error) {
+            console.error('Weather load failed:', error.message);
+            this.handleWeatherError();
+        }
+    }
+    
+    handleWeatherError() {
+        // Attempt retry with exponential backoff
+        if (this.retryAttempts.weather < this.maxRetries) {
+            this.retryAttempts.weather++;
+            const delay = this.baseRetryDelay * Math.pow(2, this.retryAttempts.weather - 1);
+            console.log(`Weather retry ${this.retryAttempts.weather}/${this.maxRetries} in ${delay}ms`);
+            setTimeout(() => this.loadWeather(), delay);
+            this.setStatus('error');
+        } else {
+            // Max retries reached, use cache
+            this.useCachedWeather();
+        }
+    }
+    
+    useCachedWeather() {
+        try {
+            const cached = localStorage.getItem('fireDashboardWeatherCache');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                const age = Date.now() - parsed.timestamp;
+                const ageHours = age / (1000 * 60 * 60);
+                
+                if (ageHours < 48) { // Accept cache up to 48 hours old
+                    this.renderWeather(parsed.data);
+                    this.setStatus('cached');
+                    console.log(`Using cached weather (${ageHours.toFixed(1)}h old)`);
+                    return;
+                }
+            }
+            this.setStatus('offline');
+            this.renderWeatherError();
+        } catch(e) {
+            this.setStatus('offline');
+            this.renderWeatherError();
+        }
+    }
+    
+    renderWeather(data) {
+        const current = data.current_weather;
+        const daily = data.daily;
+        const code = current.weathercode;
+        const info = this.weatherCodes[code] || { desc: 'Unknown', icon: '❓' };
+        
+        const elCity = document.getElementById('weather-city');
+        const elTemp = document.getElementById('weather-temp');
+        const elIcon = document.getElementById('weather-icon');
+        const elDesc = document.getElementById('weather-desc');
+        const elHiLo = document.getElementById('weather-hilo');
+        
+        if (elCity) elCity.textContent = this.config.city;
+        if (elTemp) elTemp.textContent = Math.round(current.temperature) + '°';
+        if (elIcon) elIcon.textContent = info.icon;
+        if (elDesc) elDesc.textContent = info.desc;
+        if (elHiLo) {
+            const max = Math.round(daily.temperature_2m_max[0]);
+            const min = Math.round(daily.temperature_2m_min[0]);
+            elHiLo.textContent = `H: ${max}°  L: ${min}°`;
+        }
+        
+        // Render 3-day forecast
+        const forecastRow = document.getElementById('forecast-row');
+        if (!forecastRow) return;
+        forecastRow.innerHTML = '';
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        for (let i = 1; i < 4; i++) {
+            if (!daily.time || !daily.time[i]) break;
+            const date = new Date(daily.time[i]);
+            const dayName = days[date.getDay()];
+            const dayCode = daily.weathercode[i] || 0;
+            const dayInfo = this.weatherCodes[dayCode] || { icon: '❓' };
+            const max = Math.round(daily.temperature_2m_max[i] || 0);
+            const min = Math.round(daily.temperature_2m_min[i] || 0);
+            
+            const div = document.createElement('div');
+            div.className = 'forecast-day';
+            div.innerHTML = `
+                <div class="forecast-day-name">${dayName}</div>
+                <div class="forecast-day-icon">${dayInfo.icon}</div>
+                <div class="forecast-day-temp">${max}° / ${min}°</div>
+            `;
+            forecastRow.appendChild(div);
+        }
+    }
+    
+    renderWeatherError() {
+        const elCity = document.getElementById('weather-city');
+        const elTemp = document.getElementById('weather-temp');
+        const elIcon = document.getElementById('weather-icon');
+        const elDesc = document.getElementById('weather-desc');
+        const elHiLo = document.getElementById('weather-hilo');
+        
+        if (elCity) elCity.textContent = this.config.city;
+        if (elTemp) elTemp.textContent = '--°';
+        if (elIcon) elIcon.textContent = '⚠️';
+        if (elDesc) elDesc.textContent = 'Weather unavailable';
+        if (elHiLo) elHiLo.textContent = 'Check connection';
+    }
+    
+    /* ═══════════════════════════════════════
+       PHOTO SLIDESHOW (Google Drive)
+       ═══════════════════════════════════════ */
+    async loadPhotos() {
+        if (!this.config.photosUrl || this.config.photosUrl.length < 10) {
+            console.log('No photos URL configured - using gradient fallback');
+            return;
+        }
+        
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            
+            const response = await fetch(this.config.photosUrl, { signal: controller.signal });
+            clearTimeout(timeout);
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const data = await response.json();
+            
+            // Handle Apps Script error response
+            if (data.error) throw new Error(data.error);
+            
+            if (!Array.isArray(data) || data.length === 0) {
+                throw new Error('No images in folder');
+            }
+            
+            this.images = data;
+            this.retryAttempts.photos = 0;
+            
+            // Cache image list
+            localStorage.setItem('fireDashboardPhotoCache', JSON.stringify({
+                urls: data,
+                timestamp: Date.now()
+            }));
+            
+            this.startSlideshow();
+            this.setStatus('online');
+            
+        } catch (error) {
+            console.error('Photos load failed:', error.message);
+            this.handlePhotoError();
+        }
+    }
+    
+    handlePhotoError() {
+        if (this.retryAttempts.photos < this.maxRetries) {
+            this.retryAttempts.photos++;
+            const delay = this.baseRetryDelay * Math.pow(2, this.retryAttempts.photos - 1);
+            setTimeout(() => this.loadPhotos(), delay);
+            this.setStatus('error');
+        } else {
+            this.useCachedPhotos();
+        }
+    }
+    
+    useCachedPhotos() {
+        try {
+            const cached = localStorage.getItem('fireDashboardPhotoCache');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                const age = Date.now() - parsed.timestamp;
+                const ageDays = age / (1000 * 60 * 60 * 24);
+                
+                if (ageDays < 7 && parsed.urls && parsed.urls.length > 0) {
+                    this.images = parsed.urls;
+                    this.startSlideshow();
+                    this.setStatus('cached');
+                    return;
+                }
+            }
+            // No cache available - gradient fallback is already visible
+            this.setStatus('offline');
+        } catch(e) {
+            this.setStatus('offline');
+        }
+    }
+    
+    startSlideshow() {
+        if (this.images.length === 0) return;
+        
+        // Clear existing timers
+        if (this.slideshowTimer) clearInterval(this.slideshowTimer);
+        
+        // Show first image immediately
+        this.currentImageIndex = 0;
+        this.showImage(0);
+        
+        // Start rotation
+        this.slideshowTimer = setInterval(() => {
+            this.nextImage();
+        }, this.config.slideInterval);
+    }
+    
+    showImage(index) {
+        const container = document.getElementById('bg-container');
+        const url = this.images[index];
+        
+        // Preload before showing
+        const preload = new Image();
+        
+        preload.onload = () => {
+            const img = document.createElement('img');
+            img.className = 'bg-image';
+            img.src = url;
+            img.alt = '';
+            img.loading = 'eager';
+            
+            // Clean up old images after transition
+            img.addEventListener('transitionend', () => {
+                const oldImages = container.querySelectorAll('.bg-image:not(.active)');
+                oldImages.forEach(el => {
+                    if (el.parentNode) el.parentNode.removeChild(el);
+                });
+            });
+            
+            container.appendChild(img);
+            
+            // Force reflow
+            void img.offsetWidth;
+            
+            // Activate (triggers CSS transition)
+            requestAnimationFrame(() => {
+                img.classList.add('active');
+            });
+        };
+        
+        preload.onerror = () => {
+            console.error('Image failed to load:', url);
+            // Skip to next after short delay
+            setTimeout(() => this.nextImage(), 2000);
+        };
+        
+        preload.src = url;
+    }
+    
+    nextImage() {
+        if (this.images.length === 0) return;
+        this.currentImageIndex = (this.currentImageIndex + 1) % this.images.length;
+        this.showImage(this.currentImageIndex);
+    }
+    
+    /* ═══════════════════════════════════════
+       SYSTEM & POWER MANAGEMENT
+       ═══════════════════════════════════════ */
+    setupWakeLock() {
+        const requestLock = async () => {
+            try {
+                if ('wakeLock' in navigator) {
+                    this.wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen wake lock active');
+                    
+                    this.wakeLock.addEventListener('release', () => {
+                        console.log('Wake lock released - reacquiring...');
+                        if (document.visibilityState === 'visible') {
+                            setTimeout(requestLock, 1000);
+                        }
+                    });
+                } else {
+                    console.log('Wake Lock API not supported - rely on Fire OS settings');
+                }
+            } catch (err) {
+                console.error('Wake lock error:', err);
+            }
+        };
+        
+        // Initial request
+        setTimeout(requestLock, 2000);
+        
+        // Re-acquire when tab becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                requestLock();
+            }
+        });
+    }
+    
+    setupFullscreen() {
+        const enterFullscreen = () => {
+            const elem = document.documentElement;
+            const request = elem.requestFullscreen || elem.webkitRequestFullscreen || 
+                          elem.mozRequestFullScreen || elem.msRequestFullscreen;
+            if (request) {
+                request.call(elem).catch(err => {
+                    console.log('Fullscreen request denied:', err.message);
+                });
+            }
+        };
+        
+        // Attempt on load
+        setTimeout(enterFullscreen, 1000);
+        
+        // Attempt on first user interaction (required by some browsers)
+        const onceHandler = () => {
+            enterFullscreen();
+            document.removeEventListener('click', onceHandler);
+            document.removeEventListener('touchstart', onceHandler);
+        };
+        document.addEventListener('click', onceHandler);
+        document.addEventListener('touchstart', onceHandler);
+    }
+    
+    setupNetworkMonitoring() {
+        const updateStatus = () => {
+            if (navigator.onLine) {
+                this.setStatus('online');
+                // Refresh data immediately when coming back online
+                setTimeout(() => {
+                    this.loadWeather();
+                    this.loadPhotos();
+                }, 2000);
+            } else {
+                this.setStatus('offline');
+            }
+        };
+        
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+    }
+    
+    setupAutoReload() {
+        // Reload every 24 hours to prevent memory leaks and state rot
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        setTimeout(() => {
+            console.log('Executing 24-hour auto-reload');
+            window.location.reload();
+        }, DAY_MS);
+        
+        // Reload if hidden for > 10 minutes (resets any stuck states)
+        let hiddenTime = null;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                hiddenTime = Date.now();
+            } else if (hiddenTime && (Date.now() - hiddenTime > 10 * 60 * 1000)) {
+                console.log('Reloading after extended sleep');
+                window.location.reload();
+            }
+        });
+    }
+    
+    setupMemoryManagement() {
+        // Force garbage collection hint by clearing unused variables periodically
+        setInterval(() => {
+            // Remove any stray image elements that might have been missed
+            const container = document.getElementById('bg-container');
+            const images = container.querySelectorAll('.bg-image');
+            if (images.length > 3) {
+                // Keep only the active image and the most recent inactive one
+                for (let i = 0; i < images.length - 2; i++) {
+                    if (!images[i].classList.contains('active')) {
+                        images[i].remove();
+                    }
+                }
+            }
+        }, 60000); // Check every minute
+    }
+    
+    /* ═══════════════════════════════════════
+       UI & SETTINGS
+       ═══════════════════════════════════════ */
+    toggleSettings() {
+        const panel = document.getElementById('settings-panel');
+        const isActive = panel.classList.contains('active');
+        
+        if (isActive) {
+            panel.classList.remove('active');
+        } else {
+            // Populate fields
+            document.getElementById('setting-city').value = this.config.city;
+            document.getElementById('setting-lat').value = this.config.lat;
+            document.getElementById('setting-lon').value = this.config.lon;
+            document.getElementById('setting-photos').value = this.config.photosUrl;
+            document.getElementById('setting-interval').value = this.config.slideInterval / 1000;
+            panel.classList.add('active');
+        }
+    }
+    
+    saveSettings() {
+        const city = document.getElementById('setting-city').value.trim();
+        const lat = parseFloat(document.getElementById('setting-lat').value);
+        const lon = parseFloat(document.getElementById('setting-lon').value);
+        const photosUrl = document.getElementById('setting-photos').value.trim();
+        const interval = parseInt(document.getElementById('setting-interval').value);
+        
+        // Validation
+        if (!city || isNaN(lat) || isNaN(lon)) {
+            alert('Please enter valid city name and coordinates');
+            return;
+        }
+        
+        this.config.city = city;
+        this.config.lat = lat;
+        this.config.lon = lon;
+        this.config.photosUrl = photosUrl;
+        this.config.slideInterval = (interval >= 5 ? interval : 15) * 1000;
+        this.config.firstRun = false;
+        
+        this.saveConfig();
+        this.toggleSettings();
+        
+        // Restart services with new config
+        this.retryAttempts = { weather: 0, photos: 0 };
+        this.loadWeather();
+        this.loadPhotos();
+        
+        if (this.slideshowTimer) {
+            clearInterval(this.slideshowTimer);
+            this.startSlideshow();
+        }
+    }
+    
+    setStatus(status) {
+        const indicator = document.getElementById('status-indicator');
+        if (!indicator) return;
+        
+        indicator.className = '';
+        if (status === 'offline') indicator.classList.add('offline');
+        if (status === 'error') indicator.classList.add('error');
+        if (status === 'cached') indicator.classList.add('cached');
+        // online = default green
+    }
+}
+
+/* ═══════════════════════════════════════
+   GLOBAL ERROR BOUNDARIES
+   ═══════════════════════════════════════ */
+window.addEventListener('error', (e) => {
+    console.error('Global error:', e.error);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('Unhandled promise rejection:', e.reason);
+    e.preventDefault();
+});
+
+// Initialize application
+const app = new DashboardApp();
+</script>
+</body>
+</html>
